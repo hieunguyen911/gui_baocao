@@ -1,0 +1,6 @@
+Nhận xét: Nếu chia làm 3 nhóm:
+
+Nhóm 1 (Negative): Các models hoạt động ở mức trung bình, nhưng vẫn còn khả năng cải thiện, đặc biệt là recall (số lượng lớn các kết quả false negatives).
+Nhóm 2 (Neutral): Các models gặp khó khăn đáng kể với nhóm này, có độ accuracy và recall thấp.
+Nhóm 3 (Positive): Các models hoạt động khá tốt, với accuracy và recall cao, cho thấy xác định và dự đoán đúng hầu hết các trường hợp của nhóm 3.
+KẾT LUẬN: CHỈ PHÂN LOẠI THEO 2 NHÓM: POSITIVE và NEGATIVE.

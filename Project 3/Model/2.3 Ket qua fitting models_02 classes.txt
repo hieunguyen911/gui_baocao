@@ -1,0 +1,3 @@
+Nhận xét: MultinomialNB và SVM là 02 models cho kết quả accuracy cao nhất. Tuy nhiên MultinomialNB mất rất ít thời gian xử lý, đồng thời recall (dự đoán) cho Nhóm 1 (Negative) có chút nhỉnh hơn SVM.
+
+KẾT LUẬN: chọn model MultinomialNB

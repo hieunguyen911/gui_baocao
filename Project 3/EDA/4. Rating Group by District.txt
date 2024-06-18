@@ -1,0 +1,4 @@
+Nhận xét:
+
+Dữ liệu rating bị mất cân bằng với lượng rating rất nhiều cho nhóm điểm >=7.
+Lượng rating >=7 tập trung cho các food shops tại các Quận 1, 3, 4, 5.
