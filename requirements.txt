@@ -1,0 +1,12 @@
+streamlit>=0.69
+numpy
+pandas
+matplotlib
+scikit-learn
+streamlit-echarts>=0.4.0
+st-star-rating
+underthesea
+wordcloud
+regex
+pyvi
+demoji
