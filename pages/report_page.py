@@ -24,7 +24,7 @@ df_comment['Time']=df_comment['Time'].apply(pd.to_datetime)
 df_comment['Time_Y'] = df_comment['Time'].apply(lambda x: str(x.year))
 score= df_comment['Total_Score_2'].value_counts()
 try:
-    st.write("Positive/Negative: ", score[2], '/', score[1])
+    #', score[1])
     if (score[1]!=0) and (score[1]!=0):
         p_n=round(score[2]/(score[1]+score[2])*100,2)
     else:
@@ -232,12 +232,10 @@ def find_words(document, list_of_words):
     document_lower = document.lower()
     word_count = 0
     word_list = []
-
     for word in list_of_words:
         if word in document_lower:
             word_count += document_lower.count(word)
             word_list.append(word)
-
     return word_count, word_list
 
 pkl_filename = "Project 3/Model/Sentiment_MNB_model.pkl"
@@ -255,8 +253,54 @@ def word_cloud(text):
     wordcloud = WordCloud(background_color="white", max_font_size=50, scale=3).generate(' '.join(text))
     return wordcloud
 #function8: Classify_comment
-def sentiment_report():
-        
+def classify_comment(comment):
+    # Preprocess the comment
+    processed_comment = process_text(comment, emoji_dict, teen_dict, wrong_lst)
+    processed_comment = covert_unicode(processed_comment)
+    processed_comment = process_special_word(processed_comment)
+    processed_comment = normalize_repeated_characters(processed_comment)
+    processed_comment = process_postag_thesea(processed_comment)
+    processed_comment = remove_stopword(processed_comment, stopwords_lst)
+
+    # Transform the comment to TF-IDF features
+    X_tfidf = tfidf_model.transform([processed_comment])
+
+    # Predict the class of the comment
+    y_pred = sentiment_model.predict(X_tfidf)[0]
+    comment_sentiment = 'Tiêu cực' if y_pred == 1 else 'Tích cực'
+
+    # Find positive and negative words in the comment
+    pwc,positive_words_found = find_words(processed_comment, positive_words)
+    nwc,negative_words_found = find_words(processed_comment, negative_words)
+
+    # Ensure the elements are strings
+    positive_words_found_str = [str(word) for word in positive_words_found]
+    negative_words_found_str = [str(word) for word in negative_words_found]
+
+    # Generate word clouds based on found words
+    col1, col2=st.columns(2)
+    with col1:
+        if pwc>0:
+            positive_wordcloud = WordCloud(background_color="white", max_font_size=50, scale=3).generate(' '.join(positive_words_found_str))
+            fig, ax = plt.subplots(figsize = (12, 8))
+            ax.imshow(positive_wordcloud, interpolation = 'bilinear')
+            plt.axis('off')
+            plt.title("TÍCH CỰC")
+            st.pyplot(fig)  
+               
+    with col2:
+        if nwc>0:
+            negative_wordcloud = WordCloud(background_color="white", max_font_size=50, scale=3).generate(' '.join(negative_words_found_str))
+            fig, ax = plt.subplots(figsize = (12, 8))
+            ax.imshow(negative_wordcloud, interpolation = 'bilinear')
+            plt.axis("off")
+            plt.title("TIÊU CỰC")
+            st.pyplot(fig)
+            
+    st.write(f"""#### Phân nhóm: {comment_sentiment}""")
+    st.write(f"""##### Mô tả tích cực: {positive_words_found}""")
+    st.write(f"""##### Mô tả tiêu cực: {negative_words_found}""")
+def sentiment_report():    
         # Transform the comment to TF-IDF features
         df_comment['Comment_processed'].fillna(" ", inplace=True)
         X = df_comment['Comment_processed']
@@ -273,10 +317,10 @@ def sentiment_report():
         col1, col2  =st.columns(2)
         with col1:
             # Print number of positive and negative comments
-            st.write("Trung bình Rating: ", df_comment['Rating'].mean())
-            st.write("Số lượng review: ", df_comment['Comment'].count())
-            st.write(f"Số lượng bình luận tích cực: {positive_comments_count}")
-            st.write(f"Số lượng bình luận tiêu cực: {negative_comments_count}")
+            st.write("""#### Trung bình Rating: """, df_comment['Rating'].mean())
+            st.write("""#### Số lượng review: """, df_comment['Comment'].count())
+            st.write(f"""#### Số lượng bình luận tích cực: {positive_comments_count}""")
+            st.write(f"""#### Số lượng bình luận tiêu cực: {negative_comments_count}""")
         with col2: 
              # Plot bar chart of comment statistics
             fig, ax = plt.subplots(figsize = (5, 3))
@@ -312,6 +356,64 @@ def sentiment_report():
                 plt.axis('off')
                 plt.title("TIÊU CỰC")
                 st.pyplot(fig2)
+                
+def csv_report(df_testcsv):
+        df_testcsv["comment"]= df_testcsv["comment"].apply(lambda x: process_text(x, emoji_dict, teen_dict, wrong_lst))
+        df_testcsv["comment"] = df_testcsv["comment"].apply(lambda x: covert_unicode(x))
+        df_testcsv["comment"] = df_testcsv["comment"].apply(lambda x: process_special_word(x))
+        df_testcsv["comment"] = df_testcsv["comment"].apply(lambda x: normalize_repeated_characters(x))
+        df_testcsv["comment"] = df_testcsv["comment"].apply(lambda x: process_postag_thesea(x)) 
+        df_testcsv["comment"] = df_testcsv["comment"].apply(lambda x: remove_stopword(x, stopwords_lst))
+        df_testcsv['P_list'] = df_testcsv['comment'].apply(lambda x: find_words(x, positive_words)[1])
+        df_testcsv['N_list'] = df_testcsv['comment'].apply(lambda x: find_words(x, negative_words)[1])
+        # Transform the comment to TF-IDF features
+        df_testcsv['comment'].fillna(" ", inplace=True)
+        X = df_testcsv['comment']
+        X_tfidf = tfidf_model.transform(X)
+
+        # Predict the class of the comment
+        y_pred = sentiment_model.predict(X_tfidf)
+        df_testcsv.loc[:, 'predict'] = y_pred
+        df_testcsv.loc[:, 'predict'] = df_testcsv['predict'].map({1: 'Negative', 2: 'Positive'})
+        # Map predictions to labels
+        positive_comments_count = df_testcsv['predict'].value_counts().get('Positive', 0)
+        negative_comments_count = df_testcsv['predict'].value_counts().get('Negative', 0)
+        # Print result
+        col1, col2  =st.columns(2)
+        with col1:
+            # Print number of positive and negative comments
+            st.write(f"Số lượng bình luận tích cực: {positive_comments_count}")
+            st.write(f"Số lượng bình luận tiêu cực: {negative_comments_count}")
+        with col2: 
+             # Plot bar chart of comment statistics
+            fig, ax = plt.subplots(figsize = (5, 3))
+            df_testcsv.groupby('predict')['predict'].count().plot(kind='bar', title='Thống kê bình luận')
+            plt.yticks(range(0, 50, 10))
+            plt.title("Thống kê bình luận")
+            st.pyplot(fig)
+        st.table(df_testcsv)
+        col1, col2  =st.columns(2)
+        with col1:
+        # Generate word clouds for positive and negative comment
+            st.write("""### Word Cloud bình luận tích cực""")
+            positive_comments = df_testcsv[df_testcsv['predict'] == 'Positive']['P_list']
+            if not positive_comments.empty:
+                fig1, ax1= plt.subplots(figsize = (12, 8))
+                wordcloudpos = WordCloud(background_color="white", max_font_size=50, scale=3).generate(' '.join(positive_comments.astype(str).values))
+                ax1.imshow(wordcloudpos, interpolation = 'bilinear')
+                plt.axis('off')
+                plt.title("TÍCH CỰC")
+                st.pyplot(fig1)
+        with col2:
+            st.write("""### Word Cloud bình luận tiêu cực""")
+            negative_comments = df_testcsv[df_testcsv['predict'] == 'Negative']['N_list']
+            if not negative_comments.empty:
+                fig2, ax2= plt.subplots(figsize = (12, 8))
+                wordcloudneg = WordCloud(background_color="white", max_font_size=50, scale=3).generate(' '.join(negative_comments.astype(str).values))
+                ax2.imshow(wordcloudneg, interpolation = 'bilinear')
+                plt.axis('off')
+                plt.title("TIÊU CỰC")
+                st.pyplot(fig2)  
 def res_item(name,address,rating,count):
     st.write("#### "+name)
     star=st_star_rating(label="Rating",maxValue=10, defaultValue=rating,size=20)
@@ -320,77 +422,112 @@ def res_item(name,address,rating,count):
     st.write("###### Địa chỉ: "+ address) 
 r=data_res[data_res["ID"]==id_res].iloc[0].to_list()
 
-#GUI
-col1, col2  =st.columns(2)
-with col1:
-    res_item(name=r[1],address=r[2],count=r[9],rating=r[8])
-with col2:
-    option = {
-        "tooltip": {
-            "formatter": '{a} <br/>{b} : {c}%'
-        },
-        "series": [{
-            "name": 'Progress',
-            "type": 'gauge',
-            "startAngle": 180,
-            "endAngle": 0,
-            "progress": {
-                "show": "true"
-            },
-            "radius":'100%', 
 
-            "itemStyle": {
-                "color": '#58D9F9',
-                "shadowColor": 'rgba(0,138,255,0.45)',
-                "shadowBlur": 10,
-                "shadowOffsetX": 2,
-                "shadowOffsetY": 2,
-                "radius": '55%',
-            },
-            "progress": {
-                "show": "true",
-                "roundCap": "true",
-                "width": 15
-            },
-            "pointer": {
-                "length": '60%',
-                "width": 8,
-                "offsetCenter": [0, '5%']
-            },
-            "detail": {
-                "valueAnimation": "true",
-                "formatter": '{value}%',
-                "backgroundColor": '#58D9F9',
-                "borderColor": '#999',
-                "borderWidth": 4,
-                "width": '60%',
-                "lineHeight": 20,
-                "height": 20,
-                "borderRadius": 188,
-                "offsetCenter": [0, '45%'],
-                "valueAnimation": "true",
-            },
-            "data": [{
-                "value": p_n,
-                "name": 'Mức độ hài lòng'
-            }]
-        }]
-    };
-    st.write(st_echarts(options=option))
-col1, col2  =st.columns(2)
-with col1:
-    st.write("""#### Số lượt comment theo thời gian""") 
-    fig, ax = plt.subplots(figsize = (10, 3))
-    ax.hist(df_comment['Time_Y'], bins=100)
-    plt.yticks(range(0, 50, 10))
-    plt.xlabel('Year')
-    st.pyplot(fig)
-with col2:
-    st.write("""#### Số lượt Rating""") 
-    bins = np.arange(0, 11, 1)  # Creates bins [0, 1, 2, ..., 10]
-    labels = [f'{i} to {i+1}' for i in range(10)]
-    df_comment['RatingGroup'] = pd.cut(df_comment['Rating'], bins=bins, labels=labels, right=False)
-    df_comment.groupby('RatingGroup')['RatingGroup'].count().plot(kind='bar')
-    st.pyplot(fig)
-    
-sentiment_report()
+
+#GUI
+st.sidebar.title("Report Page")
+selection = st.sidebar.radio("Go to", ["Restaurant Report", "Prediction Tool"])
+def res_report():
+    if st.button("Quay lại Trang chủ"):
+        st.switch_page("gui_demo.py")
+    with st.container():
+        col1, col2  =st.columns(2)
+        with col1:
+            res_item(name=r[1],address=r[2],count=r[9],rating=r[8])
+        with col2:
+            option = {
+                "tooltip": {
+                    "formatter": '{a} <br/>{b} : {c}%'
+                },
+                "series": [{
+                    "name": 'Progress',
+                    "type": 'gauge',
+                    "startAngle": 180,
+                    "endAngle": 0,
+                    "progress": {
+                        "show": "true"
+                    },
+                    "radius":'100%', 
+
+                    "itemStyle": {
+                        "color": '#58D9F9',
+                        "shadowColor": 'rgba(0,138,255,0.45)',
+                        "shadowBlur": 10,
+                        "shadowOffsetX": 2,
+                        "shadowOffsetY": 2,
+                        "radius": '55%',
+                    },
+                    "progress": {
+                        "show": "true",
+                        "roundCap": "true",
+                        "width": 15
+                    },
+                    "pointer": {
+                        "length": '60%',
+                        "width": 8,
+                        "offsetCenter": [0, '5%']
+                    },
+                    "detail": {
+                        "valueAnimation": "true",
+                        "formatter": '{value}%',
+                        "backgroundColor": '#58D9F9',
+                        "borderColor": '#999',
+                        "borderWidth": 4,
+                        "width": '60%',
+                        "lineHeight": 20,
+                        "height": 20,
+                        "borderRadius": 188,
+                        "offsetCenter": [0, '45%'],
+                        "valueAnimation": "true",
+                    },
+                    "data": [{
+                        "value": p_n,
+                        "name": 'Mức độ hài lòng'
+                    }]
+                }]
+            };
+            st.write(st_echarts(options=option))
+    with st.container():
+        col1, col2  =st.columns(2)
+        with col1:
+            st.write("""#### Số lượt comment theo thời gian""") 
+            fig, ax = plt.subplots(figsize = (10, 3))
+            ax.hist(df_comment['Time_Y'], bins=100)
+            plt.yticks(range(0, 50, 10))
+            plt.xlabel('Year')
+            st.pyplot(fig)
+        with col2:
+            st.write("""#### Số lượt Rating""") 
+            bins = np.arange(0, 11, 1)  # Creates bins [0, 1, 2, ..., 10]
+            labels = [f'{i} to {i+1}' for i in range(10)]
+            df_comment['RatingGroup'] = pd.cut(df_comment['Rating'], bins=bins, labels=labels, right=False)
+            df_comment.groupby('RatingGroup')['RatingGroup'].count().plot(kind='bar')
+            st.pyplot(fig)  
+        sentiment_report()
+def prediction_tool():
+    st.title("Prediction Tool")
+    st.write("""
+    Sử dụng file hoặc input comment tại đây để xử lý dữ liệu
+    """)
+    st.subheader("Select data")
+    lines = None
+    type = st.radio("Upload data or Input data?", options=("Upload", "Input"))
+    if type=="Upload":
+        # Upload file
+        uploaded_file_1 = st.file_uploader("Choose a file", type=['csv'])
+        if uploaded_file_1 is not None:
+            lines = pd.read_csv(uploaded_file_1, header=None)
+            lines.columns = ['comment']
+            st.dataframe(lines)
+            csv_report(lines)    
+    if type=="Input":        
+        comment = st.text_area(label="Input your comment:")
+        if comment!="":
+            lines = comment
+            classify_comment(lines)
+ 
+# Display the selected page
+if selection == "Restaurant Report":
+    res_report()
+elif selection == "Prediction Tool":
+    prediction_tool()
