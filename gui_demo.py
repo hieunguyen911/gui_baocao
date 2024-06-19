@@ -1,16 +1,14 @@
 import pandas as pd
-import pickle
 import streamlit as st
 import matplotlib.pyplot as plt
 from streamlit_star_rating import st_star_rating
 import warnings
 warnings.filterwarnings('ignore', message="Error kìa")
 from underthesea import word_tokenize, pos_tag, sent_tokenize
-import regex
-from wordcloud import WordCloud
-import re
+
 # 1. Read data
 data_res =pd.read_csv("df_res_merge.csv", encoding='utf-8')
+data_com =pd.read_csv("data_new.csv", encoding='utf-8')
 data_res[["ID","ReviewCount"]]=data_res[["ID","ReviewCount"]].astype("Int64")
 data_res[["Rating"]]=data_res[["Rating"]].astype(float)
 data_res[["Address","District","Restaurant"]]=data_res[["Address","District","Restaurant"]].astype(str)
@@ -35,14 +33,14 @@ def find_res(words_list, dataframe, column_name='Restaurant',ratingCount=20):
     filtered_df = dataframe[dataframe[column_name].str.contains(pattern, case=True, na=False)]
     filtered_df = filtered_df[filtered_df['ReviewCount'] >= ratingCount]
     filtered_df = filtered_df.sort_values(by='Rating', ascending=False)
-    filtered_df=filtered_df[['Restaurant','Address','Time','Price','District','Rating']]
+    filtered_df=filtered_df[['Restaurant','Address','Time','Price','District','Rating','ReviewCount','ID']]
     return filtered_df    
 
 def find_res_are(words_list, dataframe, column_name='District',ratingCount=20):
     filtered_df = dataframe[dataframe[column_name].isin(words_list)]
     filtered_df = filtered_df[filtered_df['ReviewCount'] >= ratingCount]
     filtered_df = filtered_df.sort_values(by='Rating', ascending=False)
-    filtered_df=filtered_df[['Restaurant','Address','Time','Price','District','Rating']]
+    filtered_df=filtered_df[['Restaurant','Address','Time','Price','District','Rating','ReviewCount']]
     return filtered_df    
 def res_item(name,address,rating,count,key_in):
     st.write("#### "+name)
@@ -50,6 +48,21 @@ def res_item(name,address,rating,count,key_in):
     st.write(star)
     st.write("###### Số lượt rating : "+str(count))
     st.write("###### Địa chỉ: "+ address)
+def dataframe_with_selections(df):
+    df_with_selections = df.copy()
+    df_with_selections.insert(0, "Select", False)
+
+    # Get dataframe row-selections from user with st.data_editor
+    edited_df = st.data_editor(
+        df_with_selections,
+        hide_index=True,
+        column_config={"Select": st.column_config.CheckboxColumn(required=True)},
+        disabled=df.columns,
+    )
+
+    # Filter the dataframe using the temporary column, then drop the column
+    selected_rows = edited_df[edited_df.Select]
+    return selected_rows.drop('Select', axis=1)
 
 def login_page():
     with st.container():
@@ -71,7 +84,24 @@ def login_page():
                 except ValueError:
                     st.write("Please enter a valid ID") 
             st.markdown(
-            '<p style="color: orange; font-size: 64px;"> THỐNG KÊ CỬA HÀNG </p>',unsafe_allow_html=True)     
+            '<p style="color: orange; font-size: 64px;"> TÌM KIẾM NHÀ HÀNG </p>',unsafe_allow_html=True)  
+    with st.container():
+        res_name=st.text_input(label="Nhập tên nhà hàng cần tìm")
+        res_name= res_name.title()
+        search_result= find_res([res_name],data_res, column_name="Restaurant").head(5).copy()
+        selection = dataframe_with_selections(search_result)        
+        tab1, tab2= st.tabs(["Nhà hàng", "Bình luận của nhà hàng"])
+        r=list([0,0,0,0,0,0,0,0])
+        with tab1:  
+            if len(selection)>0:
+                r=selection.iloc[0].tolist()
+                res_item(name=r[0],address=r[1],count=r[6],rating=r[5],key_in=8)
+        with tab2:
+            try:
+                df_com=data_com[data_com['IDRestaurant']==r[7]][['User','Rating','Comment']]
+                st.table(df_com)   
+            except:
+                pass             
     with st.container():
         col1, col2 =st.columns([2,6])
         with col1:
@@ -82,7 +112,7 @@ def login_page():
             [ "Hủ Tiếu", "Bánh Mì"])
         with col2:
             num=len(options)
-            st.write("""## Kết quả tìm kiếm: TOP CỬA HÀNG THEO MÓN ĂN""")
+            st.write("""## Kết quả tìm kiếm: TOP NHÀ HÀNG THEO MÓN ĂN""")
             st.dataframe(find_res(options,data_res).head(num+5), hide_index=True)
     with st.container():
         col1, col2 =st.columns([2,6])
@@ -94,7 +124,7 @@ def login_page():
             [ "Quận 1","Quận 2"])
         with col2:
             num=len(options2)
-            st.write("""## Kết quả tìm kiếm: TOP CỬA HÀNG THEO QUẬN""")
+            st.write("""## Kết quả tìm kiếm: TOP NHÀ HÀNG THEO QUẬN""")
             st.dataframe(find_res_are(options2,data_res,column_name='District').head(num+7), hide_index=True)    
     with st.container():
        
