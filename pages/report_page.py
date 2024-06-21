@@ -391,7 +391,7 @@ def csv_report(df_testcsv):
             plt.yticks(range(0, 50, 10))
             plt.title("Thống kê bình luận")
             st.pyplot(fig)
-        st.table(df_testcsv)
+        st.table(df_testcsv[['predict','comment','P_list','N_list']])
         col1, col2  =st.columns(2)
         with col1:
         # Generate word clouds for positive and negative comment
@@ -492,7 +492,7 @@ def res_report():
         with col1:
             st.write("""#### Số lượt comment theo thời gian""") 
             fig, ax = plt.subplots(figsize = (10, 3))
-            ax.hist(df_comment['Time_Y'], bins=100)
+            ax.hist(df_comment['Time_Y'].sort_values(), bins=100)
             plt.yticks(range(0, 50, 10))
             plt.xlabel('Year')
             st.pyplot(fig)
